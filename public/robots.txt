@@ -1,0 +1,39 @@
+# MegaHealth Platform - Robots.txt
+# Professional Online Healthcare Platform
+
+User-agent: *
+Allow: /
+Allow: /login
+Allow: /register
+Allow: /doctors
+Allow: /about
+Allow: /contact
+Allow: /privacy
+Allow: /terms
+
+# Disallow private/sensitive areas
+Disallow: /dashboard
+Disallow: /admin/
+Disallow: /api/
+Disallow: /video-call/
+Disallow: /chat/
+Disallow: /profile
+Disallow: /consultations
+Disallow: /credits
+Disallow: /complaints
+
+# Disallow authentication pages from indexing
+Disallow: /verify-otp
+Disallow: /forgot-password
+
+# Allow important static files
+Allow: /static/
+Allow: /manifest.json
+Allow: /*.css
+Allow: /*.js
+
+# Sitemap location
+Sitemap: https://MegaHealth-platform.com/sitemap.xml
+
+# Crawl delay (be respectful)
+Crawl-delay: 1
