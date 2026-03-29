@@ -50,7 +50,7 @@ app.use('/api/slots', require('./routes/slots'));
 app.use('/api/chat', require('./routes/chat'));
 app.use('/api/complaints', require('./routes/complaints'));
 app.use('/api/admin', require('./routes/admin'));
-app.use('/api/stores', require('./routes/stores'));
+//app.use('/api/stores', require('./routes/stores'));
 app.use('/api/video', require('./routes/videoCall'));
 app.use('/api/medbot', require('./routes/medbot'));
 
