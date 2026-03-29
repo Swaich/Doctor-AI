@@ -5,40 +5,61 @@ const dotenv = require('dotenv');
 const http = require('http');
 const socketIO = require('socket.io');
 
+// 1. Load Environment Variables
 dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
 
-// Socket.io Configuration - Set to '*' for maximum compatibility during deployment
-const io = socketIO(server, {
-  cors: {
-    origin: "*", 
-    methods: ['GET', 'POST'],
-    credentials: true
-  }
-});
+// 2. Advanced CORS Configuration
+// This allows your specific Vercel frontend to talk to this backend securely
+const allowedOrigins = [
+  process.env.FRONTEND_URL, 
+  'http://localhost:3000',
+  'https://doctor-ai-pi.vercel.app' // Added your specific Vercel URL
+];
 
-// Middleware
-// Using origin: '*' ensures your Vercel frontend is never blocked by the backend
 app.use(cors({
-  origin: '*', 
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) === -1) {
+      return callback(new Error('CORS Policy: This origin is not allowed'), false);
+    }
+    return callback(null, true);
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-auth-token']
 }));
 
+// 3. Socket.io Setup with optimized settings for Render
+const io = socketIO(server, {
+  cors: {
+    origin: allowedOrigins,
+    methods: ['GET', 'POST'],
+    credentials: true
+  },
+  transports: ['websocket', 'polling'] // Ensures compatibility
+});
+
+// 4. Standard Middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Make io accessible to routes
 app.set('io', io);
 
-// Initialize socket handler (WebRTC + Notes + Chat)
-// Ensure you have the /socket/index.js file uploaded to GitHub!
-require('./socket/index')(io);
+// 5. Initialize socket handler 
+// Ensure your folder is lowercase 'socket' on GitHub!
+try {
+  require('./socket/index')(io);
+  console.log('✅ Socket handlers initialized');
+} catch (err) {
+  console.error('❌ Socket initialization failed. Check if /socket/index.js exists.');
+}
 
-// Routes
+// 6. Routes (Organized and verified)
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/doctors', require('./routes/doctors'));
@@ -50,68 +71,46 @@ app.use('/api/slots', require('./routes/slots'));
 app.use('/api/chat', require('./routes/chat'));
 app.use('/api/complaints', require('./routes/complaints'));
 app.use('/api/admin', require('./routes/admin'));
-//app.use('/api/stores', require('./routes/stores'));
 app.use('/api/video', require('./routes/videoCall'));
 app.use('/api/medbot', require('./routes/medbot'));
 
-// Health check
+// Health check endpoint (for Render to know the app is alive)
 app.get('/', (req, res) => {
-  res.json({ message: 'MegaHealth API is running successfully' });
+  res.status(200).send('MegaHealth API is Live and Running');
 });
 
-// Error handling middleware
+// 7. Global Error Handler (This will debug "Registration Failed" for you)
 app.use((err, req, res, next) => {
-  console.error('Error:', err);
-  if (err.name === 'ValidationError') {
-    return res.status(400).json({
-      message: 'Validation Error',
-      errors: Object.values(err.errors).map(e => e.message)
-    });
-  }
-  if (err.name === 'CastError') {
-    return res.status(400).json({
-      message: 'Invalid ID format'
-    });
-  }
-  if (err.code === 11000) {
-    return res.status(400).json({
-      message: 'Duplicate field value'
-    });
-  }
-  res.status(err.status || 500).json({
-    message: err.message || 'Internal Server Error'
+  console.error('--- SERVER ERROR ---');
+  console.error(err.stack);
+  
+  const status = err.status || 500;
+  const message = err.message || 'Internal Server Error';
+
+  res.status(status).json({
+    success: false,
+    message: message,
+    error: process.env.NODE_ENV === 'production' ? null : err.stack
   });
 });
 
-// 404 handler
-app.use('*', (req, res) => {
-  res.status(404).json({
-    message: `Route ${req.originalUrl} not found`
-  });
-});
+// 8. Database Connection
+const MONGO_URI = process.env.MONGO_URI;
 
-// Database connection
-// process.env.MONGO_URI must be set in Render Environment Variables
-mongoose.connect(process.env.MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-  .then(() => console.log('MongoDB connected'))
+if (!MONGO_URI) {
+  console.error('❌ MONGO_URI is missing from Environment Variables!');
+  process.exit(1);
+}
+
+mongoose.connect(MONGO_URI)
+  .then(() => console.log('✅ MongoDB connected successfully'))
   .catch(err => {
-    console.error('MongoDB connection error:', err);
+    console.error('❌ MongoDB Connection Error:', err.message);
     process.exit(1);
   });
 
-const PORT = process.env.PORT || 5000;
-
-server.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-}).on('error', (err) => {
-  if (err.code === 'EADDRINUSE') {
-    console.error(`❌ Port ${PORT} is already in use`);
-    process.exit(1);
-  } else {
-    console.error('❌ Server error:', err);
-    process.exit(1);
-  }
+// 9. Start Server
+const PORT = process.env.PORT || 10000; // Render uses 10000 by default
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Server is running on port ${PORT}`);
 });
